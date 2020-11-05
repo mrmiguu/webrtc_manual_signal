@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start": "parcel index.html -p 80"
+  },
+  "dependencies": {
+    "babel-polyfill": "^6.26.0"
+  }
+}
