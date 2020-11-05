@@ -16,6 +16,10 @@ const {
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 
+const url = new URL(location.href)
+const base64Description = url.pathname.slice(1)
+log(base64Description)
+
 /** @type {FunctionComponent<void>} */
 const Demo = () => {
 
@@ -125,7 +129,10 @@ const Demo = () => {
               const offer = offerRef.current
               const answer = answerRef.current
 
-              offer.value = peerConnection.localDescription.sdp
+              const offerB64URIEnc = btoa(peerConnection.localDescription.sdp)
+              log(`offerB64URIEnc:\n${offerB64URIEnc}`)
+
+              offer.value = encodeURIComponent(offerB64URIEnc)
               offer.select()
 
               answer.placeholder = 'Paste answer here'
@@ -146,7 +153,7 @@ const Demo = () => {
 
             const offer = offerRef.current
 
-            await peerConnection.setRemoteDescription({ type: 'offer', sdp: offer.value })
+            await peerConnection.setRemoteDescription({ type: 'offer', sdp: atob(decodeURIComponent(offer.value)) })
             await peerConnection.setLocalDescription(await peerConnection.createAnswer())
 
             peerConnection.onicecandidate = ({ candidate }) => {
@@ -156,8 +163,11 @@ const Demo = () => {
 
               const answer = answerRef.current
 
+              const answerB64URIEnc = btoa(peerConnection.localDescription.sdp)
+              log(`answerB64URIEnc:\n${answerB64URIEnc}`)
+
               answer.focus()
-              answer.value = peerConnection.localDescription.sdp
+              answer.value = encodeURIComponent(answerB64URIEnc)
               answer.select()
             }
           }}
@@ -175,7 +185,7 @@ const Demo = () => {
             }
 
             const answer = answerRef.current
-            peerConnection.setRemoteDescription({ type: 'answer', sdp: answer.value })
+            peerConnection.setRemoteDescription({ type: 'answer', sdp: atob(decodeURIComponent(answer.value)) })
           }}
         />
       </div>
