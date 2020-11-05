@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "parcel index.html -p 80"
+    "http": "parcel index.html -p 80",
+    "https": "parcel index.html -p 443 --https"
   },
   "dependencies": {
     "babel-polyfill": "^6.26.0",
