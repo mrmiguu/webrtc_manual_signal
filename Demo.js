@@ -38,27 +38,31 @@ const Demo = () => {
   const [dataChannel, setDataChannel] = useState()
 
   /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
+  const [stateChanges, setStateChanges] = useState([])
+
+  /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
   const [chatMessages, setChatMessages] = useState([])
 
   const [fixSafariDisabled, setFixSafariDisabled] = useState(!isSafari)
 
-  const setupWebRTC = () => {
-    const chat = chatRef.current
+  /**
+   * @typedef SetupWebRTCParameters
+   * @property {(this: RTCDataChannel, ev: Event) => any} [onOpen]
+   * @property {(this: RTCDataChannel, ev: MessageEvent<any>) => any} [onMessage]
+   * @property {(this: RTCPeerConnection, ev: Event) => any} [onIceConnectionStateChange]
+   */
+
+  /**
+   * @param {SetupWebRTCParameters} params
+   */
+  const setupWebRTC = params => {
 
     const peerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.1.google.com:19302' }] })
     const dataChannel = peerConnection.createDataChannel('chat', { negotiated: true, id: 0 })
 
-    dataChannel.onopen = () => {
-      chat.select()
-    }
-    dataChannel.onmessage = e => {
-      const msg = `> ${e.data}`
-      log(msg)
-      setChatMessages(msgs => [...msgs, msg])
-    }
-    peerConnection.oniceconnectionstatechange = e => {
-      log(peerConnection.iceConnectionState)
-    }
+    dataChannel.onopen = params.onOpen
+    dataChannel.onmessage = params.onMessage
+    peerConnection.oniceconnectionstatechange = params.onIceConnectionStateChange
 
     return {
       peerConnection,
@@ -67,7 +71,26 @@ const Demo = () => {
   }
 
   useEffect(() => {
-    const { peerConnection, dataChannel } = setupWebRTC()
+    const chat = chatRef.current
+
+    const { peerConnection, dataChannel } = setupWebRTC({
+      onOpen() {
+        chat.select()
+      },
+
+      onMessage(e) {
+        const msg = `> ${e.data}`
+        log(msg)
+        setChatMessages(msgs => [...msgs, msg])
+      },
+
+      onIceConnectionStateChange() {
+        const state = peerConnection.iceConnectionState
+        log(state)
+        setStateChanges(states => [...states, state])
+      },
+    })
+
     setPeerConnection(peerConnection)
     setDataChannel(dataChannel)
   }, [])
@@ -75,7 +98,7 @@ const Demo = () => {
   return (
     <div>
 
-      <div>
+      <div hidden={!isSafari}>
         <button
           disabled={fixSafariDisabled}
           onClick={async () => {
@@ -158,6 +181,12 @@ const Demo = () => {
       </div>
 
       <div>
+        {stateChanges.map((state, i) =>
+          <div key={i}>{state}</div>
+        )}
+      </div>
+
+      <div>
         <label htmlFor="chat">Chat:</label>
         <input
           ref={chatRef}
@@ -180,8 +209,8 @@ const Demo = () => {
       </div>
 
       <div>
-        {chatMessages.map(msg =>
-          <div>{msg}</div>
+        {chatMessages.map((msg, i) =>
+          <div key={i}>{msg}</div>
         )}
       </div>
     </div>
