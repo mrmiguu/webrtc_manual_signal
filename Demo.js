@@ -10,9 +10,17 @@ import React, {
   MutableRefObject,
 } from 'react'
 
+import './Demo.scss'
+
 const {
   log,
 } = console
+
+const {
+  keys,
+  values,
+  entries,
+} = Object
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 
@@ -46,6 +54,9 @@ const Demo = () => {
 
   /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
   const [chatMessages, setChatMessages] = useState([])
+
+  /** @type {[Object.<string, MediaStream>, Dispatch<SetStateAction<Object.<string, MediaStream>>>]} */
+  const [videoSrcObjects, setVideoSrcObjects] = useState({})
 
   const [fixSafariDisabled, setFixSafariDisabled] = useState(!isSafari)
 
@@ -95,12 +106,45 @@ const Demo = () => {
       },
     })
 
+    peerConnection.ontrack = e => {
+      log(`ontrack`)
+      const stream = e.streams && e.streams[0] || new MediaStream([e.track])
+      setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['them']: stream }))
+    }
+
     setPeerConnection(peerConnection)
     setDataChannel(dataChannel)
   }, [])
 
+  useEffect(() => {
+    if (!peerConnection) {
+      return
+    }
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: stream }))
+      for (const track of stream.getTracks().slice(0, 1)) {
+        peerConnection.addTrack(track)
+      }
+    })
+  }, [peerConnection])
+
   return (
-    <div>
+    <div className={`Demo`}>
+
+      {entries(videoSrcObjects).map(([id, stream]) =>
+        <video
+          key={id}
+          ref={video => {
+            if (!video || video.srcObject === stream) {
+              return
+            }
+            video.srcObject = stream
+          }}
+          playsInline
+          autoPlay
+          muted
+        />
+      )}
 
       <div hidden={!isSafari}>
         <button
