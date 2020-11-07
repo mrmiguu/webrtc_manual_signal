@@ -82,10 +82,19 @@ const Demo = () => {
     }
 
     /** @type {MediaStream} */
-    const croppedStream = canvas.captureStream(25)
+    const croppedStream = canvas.captureStream(60)
     // croppedStream.addTrack(rawStream.getAudioTracks()[0])
-    // setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: croppedStream }))
+    const croppedVideo = croppedStream.getVideoTracks()[0]
+    const stream = new MediaStream([croppedVideo])
 
+    // setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: croppedStream }))
+    setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: stream }))
+
+    peerConnection.addTrack(croppedVideo)
+    // const tracks = croppedStream.getTracks().slice(0, 1)
+    // log(`sending tracks: ${tracks.length}`)
+    // for (const track of tracks) {
+    // }
 
     /**
      * @param {number} time 
@@ -129,12 +138,6 @@ const Demo = () => {
       requestAnimationFrame(drawVideoOnCanvas)
     }
     requestAnimationFrame(drawVideoOnCanvas)
-
-    const tracks = croppedStream.getTracks().slice(0, 1)
-    log(`sending tracks: ${tracks.length}`)
-    for (const track of tracks) {
-      peerConnection.addTrack(track)
-    }
   })(), [peerConnection])
 
   /**
@@ -209,7 +212,7 @@ const Demo = () => {
     <div className={`Demo`}>
 
       <video ref={rawVideoRef} className={`rawVideo`} playsInline autoPlay muted />
-      <canvas ref={croppedVideoRef} width={64} height={88} />
+      <canvas ref={croppedVideoRef} className={`croppedVideo`} width={64} height={88} />
 
       {entries(videoSrcObjects).map(([id, stream]) =>
         <video

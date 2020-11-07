@@ -1,12 +1,19 @@
 .Demo {
   .rawVideo {
+    pointer-events: none;
+    user-select: none;
+    position: fixed;
+    opacity: 0;
+  }
+  .croppedVideo {
+    pointer-events: none;
+    user-select: none;
     position: fixed;
     opacity: 0;
   }
 
   video,
   canvas {
-    height: 88px;
     transform: scaleX(-1);
   }
 }
