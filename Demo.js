@@ -31,6 +31,12 @@ log(base64Description)
 /** @type {FunctionComponent<void>} */
 const Demo = () => {
 
+  /** @type {MutableRefObject<HTMLVideoElement>]} */
+  const rawVideoRef = useRef()
+
+  /** @type {MutableRefObject<HTMLCanvasElement>]} */
+  const croppedVideoRef = useRef()
+
   /** @type {MutableRefObject<HTMLButtonElement>]} */
   const createOfferRef = useRef()
 
@@ -59,6 +65,77 @@ const Demo = () => {
   const [videoSrcObjects, setVideoSrcObjects] = useState({})
 
   const [fixSafariDisabled, setFixSafariDisabled] = useState(!isSafari)
+
+  useEffect(() => (async () => {
+    if (!peerConnection) {
+      return
+    }
+
+    const rawStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+
+    const video = rawVideoRef.current
+    video.srcObject = rawStream
+
+    const canvas = croppedVideoRef.current
+    if (!canvas.captureStream) {
+      throw new Error('<App>: error; canvas.captureStream not supported')
+    }
+
+    /** @type {MediaStream} */
+    const croppedStream = canvas.captureStream(25)
+    // croppedStream.addTrack(rawStream.getAudioTracks()[0])
+    // setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: croppedStream }))
+
+
+    /**
+     * @param {number} time 
+     */
+    const drawVideoOnCanvas = time => {
+      const cw = canvas.width
+      const ch = canvas.height
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+
+      const landscapeVideo = vw > vh
+      const portraitVideo = !landscapeVideo
+      const cropBasedOnHeight = landscapeVideo
+      const cropBasedOnWidth = portraitVideo
+
+      let cropWidth = 0
+      let cropHeight = 0
+      if (cropBasedOnWidth) {
+        cropWidth = vw / 2
+        cropHeight = cropWidth * ch / cw
+      }
+      if (cropBasedOnHeight) {
+        cropHeight = vh / 2
+        cropWidth = cropHeight * cw / ch
+      }
+
+      const context = canvas.getContext('2d')
+
+      context.drawImage(
+        video,
+        vw / 2 - cropWidth / 2,
+        vh / 2 - cropHeight / 2,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        cw,
+        ch,
+      )
+
+      requestAnimationFrame(drawVideoOnCanvas)
+    }
+    requestAnimationFrame(drawVideoOnCanvas)
+
+    const tracks = croppedStream.getTracks().slice(0, 1)
+    log(`sending tracks: ${tracks.length}`)
+    for (const track of tracks) {
+      peerConnection.addTrack(track)
+    }
+  })(), [peerConnection])
 
   /**
    * @typedef SetupWebRTCParameters
@@ -116,20 +193,23 @@ const Demo = () => {
     setDataChannel(dataChannel)
   }, [])
 
-  useEffect(() => {
-    if (!peerConnection) {
-      return
-    }
-    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-      setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: stream }))
-      for (const track of stream.getTracks().slice(0, 1)) {
-        peerConnection.addTrack(track)
-      }
-    })
-  }, [peerConnection])
+  // useEffect(() => {
+  //   if (!peerConnection) {
+  //     return
+  //   }
+  //   navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+  //     setVideoSrcObjects(srcObjects => ({ ...srcObjects, ['us']: stream }))
+  //     for (const track of stream.getTracks().slice(0, 1)) {
+  //       peerConnection.addTrack(track)
+  //     }
+  //   })
+  // }, [peerConnection])
 
   return (
     <div className={`Demo`}>
+
+      <video ref={rawVideoRef} className={`rawVideo`} playsInline autoPlay muted />
+      <canvas ref={croppedVideoRef} width={64} height={88} />
 
       {entries(videoSrcObjects).map(([id, stream]) =>
         <video

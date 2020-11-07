@@ -1,5 +1,11 @@
 .Demo {
-  video {
+  .rawVideo {
+    position: fixed;
+    opacity: 0;
+  }
+
+  video,
+  canvas {
     height: 88px;
     transform: scaleX(-1);
   }
