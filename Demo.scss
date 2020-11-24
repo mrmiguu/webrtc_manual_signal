@@ -1,6 +1,7 @@
-.Demo {
-  video {
-    height: 88px;
-    transform: scaleX(-1);
-  }
+.demo {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+
+  background-color: #2E87F7;
 }
