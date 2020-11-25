@@ -61,9 +61,11 @@ const PersonalRoom = ({ uid }) => {
   /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
   const [chatMessages, setChatMessages] = useState([])
 
-  /** @type {[Object.<string, MediaStream>, Dispatch<SetStateAction<Object.<string, MediaStream>>>]} */
-  const [videoSrcObjects, setVideoSrcObjects] = useState({})
-  const videoReady = keys(videoSrcObjects).length > 0
+  /** @type {[{[key: string]: MediaStream}, Dispatch<SetStateAction<{[key: string]: MediaStream}>>]} */
+  const [streams, setStreams] = useState({})
+  window.streams = streams
+
+  const videoReady = keys(streams).length > 0
 
   const [fixSafariDisabled, setFixSafariDisabled] = useState(!isSafari)
 
@@ -270,9 +272,11 @@ const PersonalRoom = ({ uid }) => {
     })
 
     peerConnection.ontrack = e => {
-      log(`ontrack`)
-      const stream = (e.streams && e.streams[0]) || new MediaStream([e.track])
-      setVideoSrcObjects(srcObjects => ({ ...srcObjects, ["them"]: stream }))
+      setStreams(streams => {
+        const stream = streams["them"] || new MediaStream()
+        stream.addTrack(e.track)
+        return { ...streams, ["them"]: stream }
+      })
     }
 
     setPeerConnection(peerConnection)
@@ -283,9 +287,9 @@ const PersonalRoom = ({ uid }) => {
     if (!peerConnection) {
       return
     }
-    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-      setVideoSrcObjects(srcObjects => ({ ...srcObjects, ["us"]: stream }))
-      for (const track of stream.getTracks().slice(0, 1)) {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+      setStreams(srcObjects => ({ ...srcObjects, ["us"]: stream }))
+      for (const track of stream.getTracks()) {
         peerConnection.addTrack(track)
       }
     })
@@ -374,20 +378,22 @@ const PersonalRoom = ({ uid }) => {
 
       <div className={`dummyzoomRoot`}>
         <div className={`dummyzoomCenterGrow`}>
-          {entries(videoSrcObjects).map(([id, stream]) => (
-            <video
-              key={id}
-              ref={video => {
-                if (!video || video.srcObject === stream) {
-                  return
-                }
-                video.srcObject = stream
-              }}
-              playsInline
-              autoPlay
-              muted={id === "us"}
-            />
-          ))}
+          {entries(streams).map(([id, stream]) => {
+            return (
+              <video
+                key={id}
+                ref={video => {
+                  if (!video || video.srcObject === stream) {
+                    return
+                  }
+                  video.srcObject = stream
+                }}
+                playsInline
+                autoPlay
+                muted={id === "us"}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

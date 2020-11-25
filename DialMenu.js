@@ -52,6 +52,7 @@ const DialMenu = ({ menu }) => {
         position: "fixed",
         height: "100%",
         width: "100%",
+        pointerEvents: "none",
       }}
     >
       <Backdrop open={open} />
@@ -62,6 +63,9 @@ const DialMenu = ({ menu }) => {
         onClose={handleClose}
         onOpen={handleOpen}
         open={open}
+        style={{
+          pointerEvents: "all",
+        }}
       >
         {entries(menu).map(([actionName, props]) => (
           <SpeedDialAction
