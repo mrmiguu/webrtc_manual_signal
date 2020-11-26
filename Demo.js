@@ -29,6 +29,20 @@ const Demo = () => {
   const [uid, setUID] = useState()
   window.uid = uid
 
+  /**
+   * @param {string} roomID
+   * @param {string} userID
+   */
+  const cleanYourConnection = async (roomID, userID) => {
+    log(`cleaning the connection between you two (${roomID}, ${userID})...`)
+    location.reload()
+  }
+
+  const cleanYourRoom = async () => {
+    log("cleaning your room...")
+    location.reload()
+  }
+
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(user => {
       if (user) {
@@ -53,7 +67,7 @@ const Demo = () => {
               <Redirect exact from="/" to={`/${uid}`} />
 
               <Route path={`/:roomID`}>
-                <PersonalRoom uid={uid} />
+                <PersonalRoom uid={uid} onConnectionError={cleanYourConnection} />
               </Route>
             </Switch>
 
@@ -75,18 +89,7 @@ const Demo = () => {
                 clean_your_room: {
                   icon: <DeleteForeverIcon />,
                   onClick() {
-                    alert("cleaning your room...")
-                    firestore
-                      .collection("rooms")
-                      .doc(uid)
-                      .collection("users")
-                      .get()
-                      .then(query => {
-                        query.docs.forEach(doc => {
-                          doc.ref.delete()
-                        })
-                        location.reload()
-                      })
+                    cleanYourRoom()
                   },
                 },
               }}

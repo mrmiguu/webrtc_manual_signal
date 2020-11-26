@@ -1,6 +1,5 @@
 // https://stackoverflow.com/a/54985729
 
-import { resolve } from "path"
 import React, {
   useRef,
   useState,
@@ -23,10 +22,11 @@ const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 /**
  * @typedef PersonalRoomProps
  * @property {string} uid
+ * @property {(roomID: string, userID: string) => void} onConnectionError
  */
 
 /** @type {FunctionComponent<PersonalRoomProps>} */
-const PersonalRoom = ({ uid }) => {
+const PersonalRoom = ({ uid, onConnectionError }) => {
   log("<PersonalRoom>")
 
   const { roomID } = useParams()
@@ -49,13 +49,16 @@ const PersonalRoom = ({ uid }) => {
   /** @type {MutableRefObject<HTMLInputElement>]} */
   const chatRef = useRef()
 
+  const [erasedRoomFirestore, setErasedRoomFirestore] = useState(false)
+  window.erasedRoomFirestore = erasedRoomFirestore
+
   /** @type {[RTCPeerConnection, Dispatch<SetStateAction<RTCPeerConnection>>]} */
   const [peerConnection, setPeerConnection] = useState()
 
   /** @type {[RTCDataChannel, Dispatch<SetStateAction<RTCDataChannel>>]} */
   const [dataChannel, setDataChannel] = useState()
 
-  /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
+  /** @type {[RTCIceConnectionState[], Dispatch<SetStateAction<RTCIceConnectionState[]>>]} */
   const [stateChanges, setStateChanges] = useState([])
 
   /** @type {[string[], Dispatch<SetStateAction<string[]>>]} */
@@ -159,13 +162,27 @@ const PersonalRoom = ({ uid }) => {
     peerConnection.setRemoteDescription({ type: "answer", sdp })
   }
 
+  const eraseRoomFirestore = async () => {
+    const query = await firestore.collection("rooms").doc(roomID).collection("users").get()
+
+    let promises = []
+    query.docs.forEach(doc => {
+      promises.push(doc.ref.delete())
+    })
+
+    await Promise.all(promises)
+    setErasedRoomFirestore(true)
+  }
+
+  useEffect(() => void log(`erasedRoomFirestore: ${erasedRoomFirestore}`), [erasedRoomFirestore])
+
   useEffect(() => {
     ;(async () => {
       log(
-        `[videoReady, peerConnection, initiator, offer, offerFrom, answer]\n[${!!videoReady}, ${!!peerConnection}, ${!!initiator}, ${!!offer}, ${!!offerFrom}, ${!!answer}]`,
+        `[videoReady, peerConnection, initiator, offer, offerFrom, answer, erasedRoomFirestore]\n[${!!videoReady}, ${!!peerConnection}, ${!!initiator}, ${!!offer}, ${!!offerFrom}, ${!!answer}, ${!!erasedRoomFirestore}]`,
       )
 
-      if (!videoReady || !peerConnection) {
+      if (!videoReady || !peerConnection || !erasedRoomFirestore) {
         return
       }
 
@@ -234,20 +251,20 @@ const PersonalRoom = ({ uid }) => {
         })
       }
     })()
-  }, [videoReady, peerConnection, initiator, offer, offerFrom, answer])
+  }, [videoReady, peerConnection, initiator, offer, offerFrom, answer, erasedRoomFirestore])
 
   useEffect(() => {
     if (!roomID) {
       return
     }
 
+    eraseRoomFirestore()
+
     if (yourRoom) {
       log(`you (${uid}) have entered your own room`)
     } else {
       log(`you (${uid}) have entered room ${roomID}`)
     }
-
-    // yourDoc.set({ timestamp: serverTimestamp() })
   }, [roomID])
 
   useEffect(() => {
@@ -294,6 +311,18 @@ const PersonalRoom = ({ uid }) => {
       }
     })
   }, [peerConnection])
+
+  useEffect(() => {
+    for (const change of stateChanges) {
+      const err = change === "failed" || change === "disconnected" || change === "closed"
+
+      if (err) {
+        const userID = yourRoom ? offerFrom : uid
+        onConnectionError(roomID, userID)
+        return
+      }
+    }
+  }, [stateChanges])
 
   return (
     <div className={`personalRoom`}>
