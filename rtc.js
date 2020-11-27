@@ -1,7 +1,8 @@
 const { log, warn } = console
 
-const init = () => {
+const initRTC = () => {
   const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.1.google.com:19302" }] })
+  const chan = peer.createDataChannel("chat", { negotiated: true, id: 0 })
 
   peer.oniceconnectionstatechange = () => {
     if (peer.iceConnectionState === "checking") {
@@ -31,39 +32,44 @@ const init = () => {
     log(`ontrack(): ${!!track}`)
   }
 
-  return peer
+  return { peer, chan }
 }
 
 const offerer = async () => {
   log(`offerer()`)
 
-  const peer = init()
-  await peer.setLocalDescription(await peer.createOffer())
-  log(`offerer(): generated`)
+  const { peer } = initRTC()
 
   /** @type {string} */
-  const offer = await new Promise(resolve => {
+  const offer = await new Promise(async resolve => {
     peer.onicecandidate = ({ candidate }) => {
-      log(`onicecandidate(): ${!!candidate}`)
-
+      log(`offerer(): candidate arrived; empty=${!!candidate}`)
       if (candidate) {
         return
       }
-
       resolve(peer.localDescription.sdp)
     }
+
+    log(`offerer(): generating offer...`)
+    await peer.setLocalDescription(await peer.createOffer())
+    log(`offerer(): offer generated!`)
+    log(`offerer(): finding empty candidate...`)
   })
-  log(`offerer(): ICE candidate (not?) found`)
+  log(`offerer(): empty candidate found!`)
 
-  const connect = answer => {
+  /**
+   * @param {string} answer
+   */
+  const connect = async answer => {
     if (peer.signalingState !== "have-local-offer") {
-      throw new Error(`connect(): signalingState=${peer.signalingState}`)
+      throw new Error(`connect(): missing local offer; signal=${peer.signalingState}`)
     }
-
-    peer.setRemoteDescription({ type: "answer", sdp: answer })
+    log(`connect(): setting remote answer...`)
+    await peer.setRemoteDescription({ type: "answer", sdp: answer })
+    log(`connect(): remote answer set!`)
   }
 
-  return { peer, offer, connect }
+  return { offer, connect }
 }
 
 /**
@@ -72,29 +78,36 @@ const offerer = async () => {
 const answerer = async offer => {
   log(`answerer()`)
 
-  const peer = init()
+  const { peer } = initRTC()
 
   if (peer.signalingState !== "stable") {
     throw new Error(`answerer(): signalingState=${peer.signalingState}`)
   }
 
-  await peer.setRemoteDescription({ type: "offer", sdp: offer })
-  log(`answerer(): set offer`)
-  await peer.setLocalDescription(await peer.createAnswer())
-  log(`answerer(): generated`)
-
   /** @type {string} */
-  const answer = await new Promise(resolve => {
+  const answer = await new Promise(async resolve => {
     peer.onicecandidate = ({ candidate }) => {
+      log(`answerer(): candidate arrived; empty=${!!candidate}`)
       if (candidate) {
         return
       }
       resolve(peer.localDescription.sdp)
     }
+    log(`answerer(): setting remote offer...`)
+    await peer.setRemoteDescription({ type: "offer", sdp: offer })
+    log(`answerer(): remote offer set!`)
+    log(`answerer(): generating answer...`)
+    await peer.setLocalDescription(await peer.createAnswer())
+    log(`answerer(): answer generated!`)
+    log(`answerer(): finding empty candidate...`)
   })
-  log(`answerer(): ICE candidate (not?) found`)
+  log(`answerer(): empty candidate found!`)
 
-  return { peer, answer }
+  return answer
 }
+
+window.initRTC = initRTC
+window.offerer = offerer
+window.answerer = answerer
 
 export { offerer, answerer }
