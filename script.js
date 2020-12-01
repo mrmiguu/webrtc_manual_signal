@@ -1,5 +1,7 @@
 import "babel-polyfill"
 
+import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
+
 // Safari fix begin
 // Safari fix begin
 // Safari fix begin
@@ -17,76 +19,6 @@ window.fixSafari = fixSafari
 
 // ----------------------------------------------------------------
 
-/**
- * @typedef Props
- * @property {(ev: Event) => any} onOpen
- * @property {(ev: MessageEvent<any>) => any} onMessage
- * @property {(ev: Event) => any} onICEConnectionStateChange
- */
-
-/**
- * @param {Props}
- */
-const newrtc = ({ onOpen, onMessage, onICEConnectionStateChange }) => {
-  const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.1.google.com:19302" }] })
-  const chan = peer.createDataChannel("chat", { negotiated: true, id: 0 })
-  chan.onopen = onOpen
-  chan.onmessage = onMessage
-  peer.oniceconnectionstatechange = onICEConnectionStateChange
-  return { peer, chan }
-}
-
-/**
- * @param {RTCPeerConnection} peer
- */
-const newoffer = async peer => {
-  await peer.setLocalDescription(await peer.createOffer())
-  /** @type {string} */
-  const offer = await new Promise(resolve => {
-    peer.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        return
-      }
-      resolve(peer.localDescription.sdp)
-    }
-  })
-  return offer
-}
-
-/**
- *
- * @param {RTCPeerConnection} peer
- * @param {string} offer
- */
-const newanswer = async (peer, offer) => {
-  if (peer.signalingState !== "stable") {
-    throw new Error(`TODO: handle unstable signaling states (signalingState=${peer.signalingState})`)
-  }
-  await peer.setRemoteDescription({ type: "offer", sdp: offer })
-  await peer.setLocalDescription(await peer.createAnswer())
-  /** @type {string} */
-  const answer = await new Promise(resolve => {
-    peer.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        return
-      }
-      resolve(peer.localDescription.sdp)
-    }
-  })
-  return answer
-}
-
-/**
- * @param {RTCPeerConnection} peer
- * @param {string} answer
- */
-const connectrtc = async (peer, answer) => {
-  if (peer.signalingState !== "have-local-offer") {
-    throw new Error(`TODO: handle signaling states without local offer (signalingState=${peer.signalingState})`)
-  }
-  await peer.setRemoteDescription({ type: "answer", sdp: answer })
-}
-
 // Manual signaling code starts here
 // Manual signaling code starts here
 // Manual signaling code starts here
@@ -94,6 +26,10 @@ const connectrtc = async (peer, answer) => {
 const log = msg => (div.innerHTML += `<br>${msg}`)
 
 const { peer: pc, chan: dc } = newrtc({
+  onICEConnectionStateChange(e) {
+    console.log(`newrtc: onICEConnectionStateChange`)
+    log(pc.iceConnectionState)
+  },
   onOpen() {
     console.log(`newrtc: onOpen`)
     chat.select()
@@ -101,10 +37,6 @@ const { peer: pc, chan: dc } = newrtc({
   onMessage(e) {
     console.log(`newrtc: onMessage`)
     log(`> ${e.data}`)
-  },
-  onICEConnectionStateChange(e) {
-    console.log(`newrtc: onICEConnectionStateChange`)
-    log(pc.iceConnectionState)
   },
 })
 
