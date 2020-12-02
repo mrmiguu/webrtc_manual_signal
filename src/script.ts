@@ -1,16 +1,17 @@
+if (module.hot) {
+  module.hot.accept()
+}
+
 import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
 
 // Safari fix begin
 // Safari fix begin
 // Safari fix begin
+
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-const fixSafariBtn = document.getElementById("fix-safari")
-fixSafariBtn.hidden = !isSafari
-async function fixSafari() {
-  await navigator.mediaDevices.getUserMedia({ audio: true })
-  fixSafariBtn.hidden = true
-}
-window.fixSafari = fixSafari
+
+isSafari && navigator.mediaDevices.getUserMedia({ audio: true })
+
 // Safari fix end
 // Safari fix end
 // Safari fix end

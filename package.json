@@ -1,9 +1,9 @@
 {
   "scripts": {
-    "start": "parcel serve ./src/index.html -p 80"
+    "start": "parcel src/index.html"
   },
-  "dependencies": {},
   "devDependencies": {
+    "@types/webpack-env": "^1.16.0",
     "parcel": "^2.0.0-nightly.464"
   }
 }
