@@ -57,17 +57,7 @@ const connectrtc = async (peer: RTCPeerConnection, answer: string) => {
 }
 
 const offerer = async () => {
-  const { peer, chan } = newrtc({
-    onICEConnectionStateChange(e) {
-      log(`newrtc: onICEConnectionStateChange ${peer.iceConnectionState}`)
-    },
-    onOpen() {
-      log(`newrtc: onOpen`)
-    },
-    onMessage(e) {
-      log(`newrtc: onMessage > ${e.data}`)
-    },
-  })
+  const { peer, chan } = newrtc()
   const offer = await newoffer(peer)
   const connect = (answer: string) => connectrtc(peer, answer)
   return { peer, chan, offer, connect }
