@@ -1,6 +1,4 @@
-if (module.hot) {
-  module.hot.accept()
-}
+import "./hmr"
 
 import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
 
