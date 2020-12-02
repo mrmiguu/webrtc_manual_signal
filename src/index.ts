@@ -1,5 +1,7 @@
 import { offerer, answerer } from "./rtc"
 
+const { log } = console
+
 // Safari fix begin
 // Safari fix begin
 // Safari fix begin

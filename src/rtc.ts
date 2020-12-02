@@ -1,16 +1,18 @@
+import tests from "./rtc.test"
+
 const { log } = console
 
-const newrtc = (props: {
-  onICEConnectionStateChange: (ev: Event) => any
-  onOpen: (ev: Event) => any
-  onMessage: (ev: MessageEvent<any>) => any
+const newrtc = (props?: {
+  onICEConnectionStateChange?: (ev: Event) => any
+  onOpen?: (ev: Event) => any
+  onMessage?: (ev: MessageEvent<any>) => any
 }) => {
   const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.1.google.com:19302" }] })
-  peer.oniceconnectionstatechange = props.onICEConnectionStateChange
+  peer.oniceconnectionstatechange = props?.onICEConnectionStateChange
 
   const chan = peer.createDataChannel("chat", { negotiated: true, id: 0 })
-  chan.onopen = props.onOpen
-  chan.onmessage = props.onMessage
+  chan.onopen = props?.onOpen
+  chan.onmessage = props?.onMessage
 
   return { peer, chan }
 }
@@ -72,19 +74,11 @@ const offerer = async () => {
 }
 
 const answerer = async (offer: string) => {
-  const { peer, chan } = newrtc({
-    onICEConnectionStateChange(e) {
-      log(`newrtc: onICEConnectionStateChange ${peer.iceConnectionState}`)
-    },
-    onOpen() {
-      log(`newrtc: onOpen`)
-    },
-    onMessage(e) {
-      log(`newrtc: onMessage > ${e.data}`)
-    },
-  })
+  const { peer, chan } = newrtc()
   const answer = await newanswer(peer, offer)
   return { peer, chan, answer }
 }
+
+location.pathname === "/tests" && tests()
 
 export { offerer, answerer }
