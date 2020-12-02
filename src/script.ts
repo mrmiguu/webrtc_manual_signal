@@ -1,4 +1,4 @@
-import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
+import { offerer, answerer } from "./rtc"
 
 // Safari fix begin
 // Safari fix begin
@@ -18,50 +18,12 @@ isSafari && navigator.mediaDevices.getUserMedia({ audio: true })
 // Manual signaling code starts here
 // Manual signaling code starts here
 
-const log = msg => (div.innerHTML += `<br>${msg}`)
-
-const { peer: pc, chan: dc } = newrtc({
-  onICEConnectionStateChange(e) {
-    console.log(`newrtc: onICEConnectionStateChange`)
-    log(pc.iceConnectionState)
-  },
-  onOpen() {
-    console.log(`newrtc: onOpen`)
-    chat.select()
-  },
-  onMessage(e) {
-    console.log(`newrtc: onMessage`)
-    log(`> ${e.data}`)
-  },
-})
-
-async function createOffer() {
-  button.disabled = true
-  const o = await newoffer(pc)
-  offer.value = o
-  offer.select()
-  answer.placeholder = "Paste answer here"
-}
-window.createOffer = createOffer
-
-offer.onkeypress = async function (e) {
-  if (e.keyCode != 13) return
-  button.disabled = offer.disabled = true
-  const a = await newanswer(pc, offer.value)
-  answer.focus()
-  answer.value = a
-  answer.select()
+declare global {
+  interface Window {
+    offerer: typeof offerer
+    answerer: typeof answerer
+  }
 }
 
-answer.onkeypress = async function (e) {
-  if (e.keyCode != 13) return
-  answer.disabled = true
-  await connectrtc(pc, answer.value)
-}
-
-chat.onkeypress = function (e) {
-  if (e.keyCode != 13) return
-  dc.send(chat.value)
-  log(chat.value)
-  chat.value = ""
-}
+window.offerer = offerer
+window.answerer = answerer

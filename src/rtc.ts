@@ -1,3 +1,5 @@
+const { log } = console
+
 const newrtc = (props: {
   onICEConnectionStateChange: (ev: Event) => any
   onOpen: (ev: Event) => any
@@ -56,4 +58,37 @@ const connectrtc = async (peer: RTCPeerConnection, answer: string) => {
   await peer.setRemoteDescription({ type: "answer", sdp: answer })
 }
 
-export { newrtc, newoffer, newanswer, connectrtc }
+const offerer = async () => {
+  const { peer, chan } = newrtc({
+    onICEConnectionStateChange(e) {
+      log(`newrtc: onICEConnectionStateChange ${peer.iceConnectionState}`)
+    },
+    onOpen() {
+      log(`newrtc: onOpen`)
+    },
+    onMessage(e) {
+      log(`newrtc: onMessage > ${e.data}`)
+    },
+  })
+  const offer = await newoffer(peer)
+  const connect = (answer: string) => connectrtc(peer, answer)
+  return { peer, chan, offer, connect }
+}
+
+const answerer = async (offer: string) => {
+  const { peer, chan } = newrtc({
+    onICEConnectionStateChange(e) {
+      log(`newrtc: onICEConnectionStateChange ${peer.iceConnectionState}`)
+    },
+    onOpen() {
+      log(`newrtc: onOpen`)
+    },
+    onMessage(e) {
+      log(`newrtc: onMessage > ${e.data}`)
+    },
+  })
+  const answer = await newanswer(peer, offer)
+  return { peer, chan, answer }
+}
+
+export { offerer, answerer }
