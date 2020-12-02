@@ -47,10 +47,6 @@ const newanswer = async (peer: RTCPeerConnection, offer: string) => {
   return answer
 }
 
-/**
- * @param {RTCPeerConnection} peer
- * @param {string} answer
- */
 const connectrtc = async (peer: RTCPeerConnection, answer: string) => {
   if (peer.signalingState !== "have-local-offer") {
     throw new Error(`TODO: handle signaling states without local offer (signalingState=${peer.signalingState})`)
