@@ -1,5 +1,3 @@
-import "./hmr"
-
 import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
 
 // Safari fix begin
