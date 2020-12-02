@@ -1,5 +1,3 @@
-import "babel-polyfill"
-
 import { newrtc, newoffer, newanswer, connectrtc } from "./rtc"
 
 // Safari fix begin

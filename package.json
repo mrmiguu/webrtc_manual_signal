@@ -1,8 +1,9 @@
 {
   "scripts": {
-    "start": "parcel index.html -p 80"
+    "start": "parcel serve ./src/index.html -p 80"
   },
-  "dependencies": {
-    "babel-polyfill": "^6.26.0"
+  "dependencies": {},
+  "devDependencies": {
+    "parcel": "^2.0.0-nightly.464"
   }
 }
