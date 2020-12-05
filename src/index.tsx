@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useEffect, useState, Dispatch, SetStateAction } from "react"
+import React, { FunctionComponent, useEffect, useState } from "react"
 import { render } from "react-dom"
 
 import { offerer, answerer } from "./rtc"
@@ -8,10 +8,7 @@ const { random, ceil, sqrt } = Math
 const { entries } = Object
 const { stringify, parse } = JSON
 
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-isSafari && navigator.mediaDevices.getUserMedia({ audio: true })
-
-const uid = Date.now() * random()
+const uid = `${Date.now() * random()}`
 
 type Connect = (answer: string) => Promise<void>
 type Offers = string[]
@@ -20,7 +17,7 @@ type Connects = { [offer: string]: Connect }
 type Streams = { [offer: string]: MediaStream }
 type Channels = { [offer: string]: RTCDataChannel }
 
-const Demo: FunctionComponent<{}> = () => {
+const Root: FunctionComponent<{}> = () => {
   const [streams, setStreams] = useState<Streams>({})
   const stream = streams[uid]
   const streamList = entries(streams)
@@ -121,6 +118,8 @@ const Demo: FunctionComponent<{}> = () => {
                 }
                 video.srcObject = stream
               }}
+              autoPlay
+              playsInline
               style={{
                 position: "relative",
                 left: "50%",
@@ -129,9 +128,7 @@ const Demo: FunctionComponent<{}> = () => {
                 height: "100%",
                 filter: "brightness(1.25) saturate(1.25)",
               }}
-              autoPlay
-              playsInline
-              muted
+              muted={id === uid}
             />
           </div>
         ))}
@@ -156,4 +153,4 @@ declare global {
 window.stringify = stringify
 window.parse = parse
 
-render(<Demo />, document.getElementById("root"))
+render(<Root />, document.getElementById("root"))
