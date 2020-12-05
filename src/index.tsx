@@ -30,24 +30,13 @@ const Demo: FunctionComponent<{}> = () => {
   const [channels, setChannels] = useState<Channels>({})
 
   const offer = async () => {
-    const o = await offerer()
+    const o = await offerer(stream)
     const offer = o.offer
     const oenc = btoa(offer)
 
-    o.peer.ontrack = ({ track }) => {
-      setStreams(s => {
-        const theirs = s[oenc] ?? new MediaStream()
-        theirs.addTrack(track)
-        return { ...s, [oenc]: theirs }
-      })
-    }
-
-    for (const track of stream.getTracks()) {
-      o.peer.addTrack(track)
-    }
-
-    setConnects(c => ({ ...c, [oenc]: o.connect }))
     setChannels(c => ({ ...c, [oenc]: o.chan }))
+    setStreams(s => ({ ...s, [oenc]: o.incoming }))
+    setConnects(c => ({ ...c, [oenc]: o.connect }))
 
     return oenc
   }
@@ -57,23 +46,12 @@ const Demo: FunctionComponent<{}> = () => {
 
     for (const oenc of offers) {
       const offer = atob(oenc)
-      const a = await answerer(offer)
+      const a = await answerer(offer, stream)
       const answer = a.answer
       const aenc = btoa(answer)
 
-      a.peer.ontrack = ({ track }) => {
-        setStreams(s => {
-          const theirs = s[oenc] ?? new MediaStream()
-          theirs.addTrack(track)
-          return { ...s, [oenc]: theirs }
-        })
-      }
-
-      for (const track of stream.getTracks()) {
-        a.peer.addTrack(track)
-      }
-
       setChannels(c => ({ ...c, [oenc]: a.chan }))
+      setStreams(s => ({ ...s, [oenc]: a.incoming }))
 
       answers = { ...answers, [oenc]: aenc }
     }

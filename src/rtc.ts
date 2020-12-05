@@ -56,7 +56,7 @@ const connectrtc = async (peer: RTCPeerConnection, answer: string) => {
   await peer.setRemoteDescription({ type: "answer", sdp: answer })
 }
 
-const offerer = async () => {
+const offerer = async (outgoing?: MediaStream) => {
   const { peer, chan } = newrtc({
     onICEConnectionStateChange() {
       log(`connection ${peer.connectionState}`)
@@ -68,12 +68,17 @@ const offerer = async () => {
       log(`> ${e.data}`)
     },
   })
+  const incoming = new MediaStream()
+  peer.ontrack = ({ track }) => incoming.addTrack(track)
+  for (const track of outgoing?.getTracks() ?? []) {
+    peer.addTrack(track)
+  }
   const offer = await newoffer(peer)
   const connect = (answer: string) => connectrtc(peer, answer)
-  return { peer, chan, offer, connect }
+  return { peer, chan, incoming, offer, connect }
 }
 
-const answerer = async (offer: string) => {
+const answerer = async (offer: string, outgoing?: MediaStream) => {
   const { peer, chan } = newrtc({
     onICEConnectionStateChange() {
       log(`connection ${peer.connectionState}`)
@@ -85,8 +90,13 @@ const answerer = async (offer: string) => {
       log(`> ${e.data}`)
     },
   })
+  const incoming = new MediaStream()
+  peer.ontrack = ({ track }) => incoming.addTrack(track)
+  for (const track of outgoing?.getTracks() ?? []) {
+    peer.addTrack(track)
+  }
   const answer = await newanswer(peer, offer)
-  return { peer, chan, answer }
+  return { peer, chan, incoming, answer }
 }
 
 location.pathname === "/tests" && tests()
