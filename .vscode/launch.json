@@ -7,8 +7,19 @@
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Launch Chrome against localhost",
-      "url": "http://localhost:1234/",
+      "name": "Chrome (http)",
+      "url": "http://localhost",
+      "webRoot": "${workspaceFolder}",
+      "breakOnLoad": true,
+      "sourceMapPathOverrides": {
+        "../*": "${webRoot}/*"
+      }
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Chrome (https)",
+      "url": "https://localhost",
       "webRoot": "${workspaceFolder}",
       "breakOnLoad": true,
       "sourceMapPathOverrides": {

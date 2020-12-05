@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "parcel src/index.html"
+    "http": "parcel src/index.html -p 80",
+    "https": "parcel src/index.html -p 443 --https"
   },
   "devDependencies": {
     "@playwright/test": "^0.162.0",

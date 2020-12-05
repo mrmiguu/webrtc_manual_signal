@@ -4,14 +4,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "serve",
+      "label": "http",
       "type": "shell",
-      "command": "npm start",
-      "problemMatcher": [],
+      "command": "npm run http",
       "group": {
         "kind": "build",
         "isDefault": true
       }
+    },
+    {
+      "label": "https",
+      "type": "shell",
+      "command": "npm run https"
     }
   ]
 }
