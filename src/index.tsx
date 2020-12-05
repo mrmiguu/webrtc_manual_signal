@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useEffect, useState } from "react"
+import React, { FunctionComponent, useEffect, useState, Dispatch, SetStateAction } from "react"
 import { render } from "react-dom"
 
 import { offerer, answerer } from "./rtc"
@@ -6,16 +6,89 @@ import { offerer, answerer } from "./rtc"
 const { log } = console
 const { random, ceil, sqrt } = Math
 const { entries } = Object
+const { stringify, parse } = JSON
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 isSafari && navigator.mediaDevices.getUserMedia({ audio: true })
 
 const uid = Date.now() * random()
 
+type Connect = (answer: string) => Promise<void>
+type Offers = string[]
+type Answers = { [offer: string]: string }
+type Connects = { [offer: string]: Connect }
+type Streams = { [offer: string]: MediaStream }
+type Channels = { [offer: string]: RTCDataChannel }
+
 const Demo: FunctionComponent<{}> = () => {
-  const [streams, setStreams] = useState<{ [key: string]: MediaStream }>({})
+  const [streams, setStreams] = useState<Streams>({})
+  const stream = streams[uid]
   const streamList = entries(streams)
   const squareSize = ceil(sqrt(streamList.length))
+
+  const [connects, setConnects] = useState<Connects>({})
+  const [channels, setChannels] = useState<Channels>({})
+
+  const offer = async () => {
+    const o = await offerer()
+    const offer = o.offer
+    const oenc = btoa(offer)
+
+    o.peer.ontrack = ({ track }) => {
+      setStreams(s => {
+        const theirs = s[oenc] ?? new MediaStream()
+        theirs.addTrack(track)
+        return { ...s, [oenc]: theirs }
+      })
+    }
+
+    for (const track of stream.getTracks()) {
+      o.peer.addTrack(track)
+    }
+
+    setConnects(c => ({ ...c, [oenc]: o.connect }))
+    setChannels(c => ({ ...c, [oenc]: o.chan }))
+
+    return oenc
+  }
+
+  const answer = async (...offers: Offers) => {
+    let answers: Answers = {}
+
+    for (const oenc of offers) {
+      const offer = atob(oenc)
+      const a = await answerer(offer)
+      const answer = a.answer
+      const aenc = btoa(answer)
+
+      a.peer.ontrack = ({ track }) => {
+        setStreams(s => {
+          const theirs = s[oenc] ?? new MediaStream()
+          theirs.addTrack(track)
+          return { ...s, [oenc]: theirs }
+        })
+      }
+
+      for (const track of stream.getTracks()) {
+        a.peer.addTrack(track)
+      }
+
+      setChannels(c => ({ ...c, [oenc]: a.chan }))
+
+      answers = { ...answers, [oenc]: aenc }
+    }
+
+    return answers
+  }
+
+  const connect = async (answers: Answers) => {
+    for (const oenc in answers) {
+      const aenc = answers[oenc]
+      const answer = atob(aenc)
+      const connect = connects[oenc]
+      await connect(answer)
+    }
+  }
 
   const setMyStream = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -23,6 +96,12 @@ const Demo: FunctionComponent<{}> = () => {
   }
 
   useEffect(() => void setMyStream(), [])
+
+  window.offer = offer
+  window.answer = answer
+  window.connect = connect
+  window.streams = streams
+  window.channels = channels
 
   return (
     <div
@@ -82,5 +161,21 @@ const Demo: FunctionComponent<{}> = () => {
     </div>
   )
 }
+
+declare global {
+  interface Window {
+    offer: () => Promise<string>
+    answer: (...offers: Offers) => Promise<Answers>
+    connect: (answers: Answers) => Promise<void>
+    stringify: typeof stringify
+    parse: typeof parse
+    uid: typeof uid
+    streams: Streams
+    channels: Channels
+  }
+}
+
+window.stringify = stringify
+window.parse = parse
 
 render(<Demo />, document.getElementById("root"))
