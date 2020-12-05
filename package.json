@@ -6,5 +6,11 @@
     "@playwright/test": "^0.162.0",
     "@types/webpack-env": "^1.16.0",
     "parcel": "^2.0.0-nightly.464"
+  },
+  "dependencies": {
+    "@types/react": "^17.0.0",
+    "@types/react-dom": "^17.0.0",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1"
   }
 }
