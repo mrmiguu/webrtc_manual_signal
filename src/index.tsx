@@ -2,14 +2,38 @@ import React, { FunctionComponent, useEffect, useState } from "react"
 import { render } from "react-dom"
 
 import { offerer, answerer } from "./rtc"
+import { firestore, pendingUID, documentId } from "./firebase"
 
 const { log } = console
 const { random, ceil, sqrt } = Math
-const { entries } = Object
+const { keys, entries } = Object
 const { stringify, parse } = JSON
 
-const uid = `${Date.now() * random()}`
+const roomID = encodeURIComponent(location.pathname)
 
+const useFirestoreRoom = (roomID: string, uid: string) => {
+  const [users, setUsers] = useState({ [uid]: {} })
+
+  const usersRef = firestore.collection("rooms").doc(roomID).collection("users")
+
+  const handleRoom = async () => {
+    usersRef.doc(uid).set({})
+
+    usersRef.where(documentId(), "!=", uid).onSnapshot(snapshot => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === "added") {
+          setUsers(u => ({ ...u, [change.doc.id]: change.doc.data() }))
+        }
+      }
+    })
+  }
+
+  useEffect(() => void handleRoom(), [])
+
+  return { users }
+}
+
+type Connections = { [uid: string]: boolean }
 type Connect = (answer: string) => Promise<void>
 type Offers = string[]
 type Answers = { [offer: string]: string }
@@ -17,11 +41,20 @@ type Connects = { [offer: string]: Connect }
 type Streams = { [offer: string]: MediaStream }
 type Channels = { [offer: string]: RTCDataChannel }
 
-const Root: FunctionComponent<{}> = () => {
+type RootProps = {
+  uid: string
+}
+
+const Root: FunctionComponent<RootProps> = ({ uid }) => {
+  const { users } = useFirestoreRoom(roomID, uid)
+  const [connections, setConnections] = useState<Connections>({})
   const [streams, setStreams] = useState<Streams>({})
   const stream = streams[uid]
   const streamList = entries(streams)
   const squareSize = ceil(sqrt(streamList.length))
+  const [connecting, setConnecting] = useState<string>()
+  const [incomingOffer, setIncomingOffer] = useState<string>()
+  const [incomingAnswer, setIncomingAnswer] = useState<Answers>()
 
   const [connects, setConnects] = useState<Connects>({})
   const [channels, setChannels] = useState<Channels>({})
@@ -70,7 +103,98 @@ const Root: FunctionComponent<{}> = () => {
     setStreams(s => ({ ...s, [uid]: stream }))
   }
 
+  const printRoomUsers = () => {
+    log(`room: ${keys(users)}`)
+  }
+
+  const connectToNewRoomUsers = async () => {
+    if (!stream) {
+      return
+    }
+
+    for (const id in users) {
+      if (id === uid) {
+        continue
+      }
+      if (id in connections) {
+        continue
+      }
+
+      setConnecting(id)
+
+      const weOffer = uid < id
+      log(`weOffer ${weOffer}`)
+
+      const both = [uid, id].sort().join(":")
+      const offerRef = firestore.collection("connecting").doc(`offer:${both}`)
+      const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
+
+      if (weOffer) {
+        const unsub = answerRef.onSnapshot(doc => {
+          if (!doc.exists) {
+            return
+          }
+          unsub()
+          answerRef.delete()
+          const { a, o } = doc.data()
+          setIncomingAnswer({ [o]: a })
+        })
+
+        const o = await offer()
+
+        const offerMsg = { o }
+        // log(`offerMsg ${stringify(offerMsg, null, 2)}`)
+        await offerRef.set(offerMsg)
+        log(`o sent ${!!o}`)
+      } else {
+        const unsub = offerRef.onSnapshot(doc => {
+          if (!doc.exists) {
+            return
+          }
+          unsub()
+          offerRef.delete()
+          const { o } = doc.data()
+          setIncomingOffer(o)
+        })
+      }
+    }
+  }
+
+  const handleOffer = async () => {
+    if (!incomingOffer) {
+      return
+    }
+    if (!connecting) {
+      return
+    }
+
+    const o = incomingOffer
+    const a = (await answer(o))[o]
+
+    const both = [uid, connecting].sort().join(":")
+    const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
+
+    const answerMsg = { a, o }
+    // log(`answerMsg ${stringify(answerMsg, null, 2)}`)
+    await answerRef.set(answerMsg)
+  }
+
+  const handleAnswer = async () => {
+    if (!incomingAnswer) {
+      return
+    }
+    if (!connecting) {
+      return
+    }
+
+    await connect(incomingAnswer)
+  }
+
   useEffect(() => void setMyStream(), [])
+  useEffect(() => void printRoomUsers(), [users])
+  useEffect(() => void handleOffer(), [incomingOffer, connecting])
+  useEffect(() => void handleAnswer(), [incomingAnswer, connecting, connects])
+  useEffect(() => void connectToNewRoomUsers(), [users, stream])
 
   window.offer = offer
   window.answer = answer
@@ -144,13 +268,27 @@ declare global {
     connect: (answers: Answers) => Promise<void>
     stringify: typeof stringify
     parse: typeof parse
-    uid: typeof uid
+    uid: string
     streams: Streams
     channels: Channels
+    firestore: typeof firestore
   }
 }
 
 window.stringify = stringify
 window.parse = parse
+window.firestore = firestore
 
-render(<Root />, document.getElementById("root"))
+const RootWrapper = () => {
+  const [uid, setUID] = useState<string>()
+
+  useEffect(() => {
+    pendingUID.then(setUID)
+  }, [])
+
+  window.uid = uid
+
+  return uid ? <Root uid={uid} /> : null
+}
+
+render(<RootWrapper />, document.getElementById("root"))
