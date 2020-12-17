@@ -2,7 +2,10 @@ import React, { FunctionComponent, useEffect, useState } from "react"
 import { render } from "react-dom"
 
 import { offerer, answerer } from "./rtc"
-import { firestore, pendingUID, documentId } from "./firebase"
+import { anonymousUID, waitForDocument, UseCollection } from "./firebase"
+import firebase from "firebase/app"
+import "firebase/firestore"
+import { useCollection } from "react-firebase-hooks/firestore"
 
 const { log } = console
 const { random, ceil, sqrt } = Math
@@ -11,90 +14,95 @@ const { stringify, parse } = JSON
 
 const roomID = encodeURIComponent(location.pathname)
 
-// const useFirestoreRoom = (roomID: string, uid: string) => {
-//   const [users, setUsers] = useState({ [uid]: {} })
-
-//   const usersRef = firestore.collection("rooms").doc(roomID).collection("users")
-
-//   const handleRoom = async () => {
-//     usersRef.doc(uid).set({})
-
-//     usersRef.where(documentId(), "!=", uid).onSnapshot(snapshot => {
-//       for (const change of snapshot.docChanges()) {
-//         if (change.type === "added") {
-//           setUsers(u => ({ ...u, [change.doc.id]: change.doc.data() }))
-//         }
-//       }
-//     })
-//   }
-
-//   useEffect(() => void handleRoom(), [])
-
-//   return { users }
-// }
-
 type Connections = { [uid: string]: boolean }
 type Connect = (answer: string) => Promise<void>
 type Offers = string[]
 type Answers = { [offer: string]: string }
 type Connects = { [offer: string]: Connect }
-type Streams = { [offer: string]: MediaStream }
-type Channels = { [offer: string]: RTCDataChannel }
+type Streams = { [uid: string]: MediaStream }
+type Sockets = { [uid: string]: RTCDataChannel }
 
 type RootProps = {
   uid: string
 }
 
 const Root: FunctionComponent<RootProps> = ({ uid }) => {
-  // const { users } = useFirestoreRoom(roomID, uid)
   const [connections, setConnections] = useState<Connections>({})
   const [streams, setStreams] = useState<Streams>({})
   const stream = streams[uid]
   const streamList = entries(streams)
   const squareSize = ceil(sqrt(streamList.length))
-  const [connecting, setConnecting] = useState<string>()
-  const [incomingOffer, setIncomingOffer] = useState<string>()
-  const [incomingAnswer, setIncomingAnswer] = useState<Answers>()
 
   const [connects, setConnects] = useState<Connects>({})
-  const [channels, setChannels] = useState<Channels>({})
+  ;(window as any).connects = connects
+  const [sockets, setSockets] = useState<Sockets>({})
 
-  const offer = async () => {
-    const o = await offerer(stream)
-    const offer = o.offer
-    const oenc = btoa(offer)
+  const [roomUsersQuery] = useCollection(
+    firebase.firestore().collection("rooms").doc(roomID).collection("users"),
+  ) as UseCollection
 
-    setChannels(c => ({ ...c, [oenc]: o.chan }))
-    setStreams(s => ({ ...s, [oenc]: o.incoming }))
-    setConnects(c => ({ ...c, [oenc]: o.connect }))
+  const roomUserIds = roomUsersQuery?.docs?.map(doc => doc.id) ?? []
 
-    return oenc
-  }
+  useEffect(() => {
+    if (!stream) {
+      return
+    }
+    firebase.firestore().collection("rooms").doc(roomID).collection("users").doc(uid).set({})
+  }, [stream])
 
-  const answer = async (...offers: Offers) => {
-    let answers: Answers = {}
-
-    for (const oenc of offers) {
-      const offer = atob(oenc)
-      const a = await answerer(offer, stream)
-      const answer = a.answer
-      const aenc = btoa(answer)
-
-      setChannels(c => ({ ...c, [oenc]: a.chan }))
-      setStreams(s => ({ ...s, [oenc]: a.incoming }))
-
-      answers = { ...answers, [oenc]: aenc }
+  const makeConnections = async () => {
+    if (!stream) {
+      return
     }
 
-    return answers
-  }
+    for (const id of roomUserIds) {
+      const alreadyConnected = id in connections
+      const ourId = id === uid
 
-  const connect = async (answers: Answers) => {
-    for (const oenc in answers) {
-      const aenc = answers[oenc]
-      const answer = atob(aenc)
-      const connect = connects[oenc]
-      await connect(answer)
+      if (alreadyConnected || ourId) {
+        continue
+      }
+
+      setConnections(c => ({ ...c, [id]: true }))
+      log(`connect(${uid}, ${id})`)
+
+      const weOffer = uid < id
+
+      if (weOffer) {
+        const o = await offerer(stream)
+        const offer = o.offer
+        const oenc = btoa(offer)
+        setSockets(c => ({ ...c, [id]: o.chan }))
+        setStreams(s => ({ ...s, [id]: o.incoming }))
+
+        await firebase.firestore().collection("rooms").doc(roomID).collection(`${id}:${uid}`).add({ oenc })
+        log(`weOffer: oenc sent! ${!!oenc}`)
+
+        const { aenc } = await waitForDocument(
+          firebase.firestore().collection("rooms").doc(roomID).collection(`${uid}:${id}`),
+        )
+        log(`weOffer: aenc arrived! ${!!aenc}`)
+
+        const answer = atob(aenc)
+        await o.connect(answer)
+        log(`weOffer: connected`)
+      } else {
+        const { oenc } = await waitForDocument(
+          firebase.firestore().collection("rooms").doc(roomID).collection(`${uid}:${id}`),
+        )
+        log(`weOffer: oenc arrived! ${!!oenc}`)
+
+        const offer = atob(oenc)
+        const a = await answerer(offer, stream)
+        const answer = a.answer
+        const aenc = btoa(answer)
+
+        setSockets(c => ({ ...c, [id]: a.chan }))
+        setStreams(s => ({ ...s, [id]: a.incoming }))
+
+        await firebase.firestore().collection("rooms").doc(roomID).collection(`${id}:${uid}`).add({ aenc })
+        log(`weOffer: aenc sent! ${!!aenc}`)
+      }
     }
   }
 
@@ -103,103 +111,10 @@ const Root: FunctionComponent<RootProps> = ({ uid }) => {
     setStreams(s => ({ ...s, [uid]: stream }))
   }
 
-  // const printRoomUsers = () => {
-  //   log(`room: ${keys(users)}`)
-  // }
-
-  // const connectToNewRoomUsers = async () => {
-  //   if (!stream) {
-  //     return
-  //   }
-
-  //   for (const id in users) {
-  //     if (id === uid) {
-  //       continue
-  //     }
-  //     if (id in connections) {
-  //       continue
-  //     }
-
-  //     setConnecting(id)
-
-  //     const weOffer = uid < id
-  //     log(`weOffer ${weOffer}`)
-
-  //     const both = [uid, id].sort().join(":")
-  //     const offerRef = firestore.collection("connecting").doc(`offer:${both}`)
-  //     const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
-
-  //     if (weOffer) {
-  //       const unsub = answerRef.onSnapshot(doc => {
-  //         if (!doc.exists) {
-  //           return
-  //         }
-  //         unsub()
-  //         answerRef.delete()
-  //         const { a, o } = doc.data()
-  //         setIncomingAnswer({ [o]: a })
-  //       })
-
-  //       const o = await offer()
-
-  //       const offerMsg = { o }
-  //       // log(`offerMsg ${stringify(offerMsg, null, 2)}`)
-  //       await offerRef.set(offerMsg)
-  //       log(`o sent ${!!o}`)
-  //     } else {
-  //       const unsub = offerRef.onSnapshot(doc => {
-  //         if (!doc.exists) {
-  //           return
-  //         }
-  //         unsub()
-  //         offerRef.delete()
-  //         const { o } = doc.data()
-  //         setIncomingOffer(o)
-  //       })
-  //     }
-  //   }
-  // }
-
-  // const handleOffer = async () => {
-  //   if (!incomingOffer) {
-  //     return
-  //   }
-  //   if (!connecting) {
-  //     return
-  //   }
-
-  //   const o = incomingOffer
-  //   const a = (await answer(o))[o]
-
-  //   const both = [uid, connecting].sort().join(":")
-  //   const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
-
-  //   const answerMsg = { a, o }
-  //   // log(`answerMsg ${stringify(answerMsg, null, 2)}`)
-  //   await answerRef.set(answerMsg)
-  // }
-
-  // const handleAnswer = async () => {
-  //   if (!incomingAnswer) {
-  //     return
-  //   }
-  //   if (!connecting) {
-  //     return
-  //   }
-
-  //   await connect(incomingAnswer)
-  // }
-
   useEffect(() => void setMyStream(), [])
-  // useEffect(() => void printRoomUsers(), [users])
-  // useEffect(() => void handleOffer(), [incomingOffer, connecting])
-  // useEffect(() => void handleAnswer(), [incomingAnswer, connecting, connects])
-  // useEffect(() => void connectToNewRoomUsers(), [users, stream])
-  ;(window as any).offer = offer
-  ;(window as any).answer = answer
-  ;(window as any).connect = connect
+  useEffect(() => void makeConnections(), [roomUsersQuery, connections, stream])
   ;(window as any).streams = streams
-  ;(window as any).channels = channels
+  ;(window as any).sockets = sockets
 
   return (
     <div
@@ -262,13 +177,12 @@ const Root: FunctionComponent<RootProps> = ({ uid }) => {
 
 ;(window as any).stringify = stringify
 ;(window as any).parse = parse
-;(window as any).firestore = firestore
 
 const RootWrapper = () => {
   const [uid, setUID] = useState<string>()
 
   useEffect(() => {
-    pendingUID.then(setUID)
+    anonymousUID.then(setUID)
   }, [])
   ;(window as any).uid = uid
 

@@ -1,19 +1,41 @@
 import firebase from "firebase/app"
-import "firebase/auth"
-import "firebase/firestore"
-
 ;(window as any).firebase = firebase
 require("../init-firebase")
 
-const { documentId } = firebase.firestore.FieldPath
+import "firebase/auth"
+import "firebase/firestore"
 
-const { log } = console
+import { useCollection, useCollectionData, useDocument, useDocumentData } from "react-firebase-hooks/firestore"
 
-const pendingUID = firebase
+const anonymousUID = firebase
   .auth()
   .signInAnonymously()
   .then(cred => cred.user.uid)
 
-const firestore = firebase.firestore()
+type UseCollection = [firebase.firestore.QuerySnapshot, boolean, Error]
+type UseCollectionData<T> = [T[], boolean, Error]
+type UseDocument = [firebase.firestore.DocumentSnapshot, boolean, Error]
+type UseDocumentData<T> = [T, boolean, Error]
 
-export { pendingUID, firestore, documentId }
+const waitForDocument = async (
+  collectionRef: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>,
+) => {
+  const data = await new Promise<firebase.firestore.DocumentData>(resolve => {
+    const unsub = collectionRef.onSnapshot(querySnapshot => {
+      querySnapshot.docChanges().forEach(async docChange => {
+        if (docChange.type !== "added") {
+          return
+        }
+        unsub()
+        const { doc } = docChange
+        const data = doc.data()
+        await doc.ref.delete()
+        resolve(data)
+      })
+    })
+  })
+
+  return data
+}
+
+export { anonymousUID, waitForDocument, UseCollection, UseCollectionData, UseDocument, UseDocumentData }
