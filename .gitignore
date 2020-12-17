@@ -3,3 +3,4 @@ dist/
 node_modules/
 .firebase/
 .parcel-cache/
+init-firebase.js

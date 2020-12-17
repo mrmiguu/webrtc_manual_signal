@@ -11,27 +11,27 @@ const { stringify, parse } = JSON
 
 const roomID = encodeURIComponent(location.pathname)
 
-const useFirestoreRoom = (roomID: string, uid: string) => {
-  const [users, setUsers] = useState({ [uid]: {} })
+// const useFirestoreRoom = (roomID: string, uid: string) => {
+//   const [users, setUsers] = useState({ [uid]: {} })
 
-  const usersRef = firestore.collection("rooms").doc(roomID).collection("users")
+//   const usersRef = firestore.collection("rooms").doc(roomID).collection("users")
 
-  const handleRoom = async () => {
-    usersRef.doc(uid).set({})
+//   const handleRoom = async () => {
+//     usersRef.doc(uid).set({})
 
-    usersRef.where(documentId(), "!=", uid).onSnapshot(snapshot => {
-      for (const change of snapshot.docChanges()) {
-        if (change.type === "added") {
-          setUsers(u => ({ ...u, [change.doc.id]: change.doc.data() }))
-        }
-      }
-    })
-  }
+//     usersRef.where(documentId(), "!=", uid).onSnapshot(snapshot => {
+//       for (const change of snapshot.docChanges()) {
+//         if (change.type === "added") {
+//           setUsers(u => ({ ...u, [change.doc.id]: change.doc.data() }))
+//         }
+//       }
+//     })
+//   }
 
-  useEffect(() => void handleRoom(), [])
+//   useEffect(() => void handleRoom(), [])
 
-  return { users }
-}
+//   return { users }
+// }
 
 type Connections = { [uid: string]: boolean }
 type Connect = (answer: string) => Promise<void>
@@ -46,7 +46,7 @@ type RootProps = {
 }
 
 const Root: FunctionComponent<RootProps> = ({ uid }) => {
-  const { users } = useFirestoreRoom(roomID, uid)
+  // const { users } = useFirestoreRoom(roomID, uid)
   const [connections, setConnections] = useState<Connections>({})
   const [streams, setStreams] = useState<Streams>({})
   const stream = streams[uid]
@@ -103,104 +103,103 @@ const Root: FunctionComponent<RootProps> = ({ uid }) => {
     setStreams(s => ({ ...s, [uid]: stream }))
   }
 
-  const printRoomUsers = () => {
-    log(`room: ${keys(users)}`)
-  }
+  // const printRoomUsers = () => {
+  //   log(`room: ${keys(users)}`)
+  // }
 
-  const connectToNewRoomUsers = async () => {
-    if (!stream) {
-      return
-    }
+  // const connectToNewRoomUsers = async () => {
+  //   if (!stream) {
+  //     return
+  //   }
 
-    for (const id in users) {
-      if (id === uid) {
-        continue
-      }
-      if (id in connections) {
-        continue
-      }
+  //   for (const id in users) {
+  //     if (id === uid) {
+  //       continue
+  //     }
+  //     if (id in connections) {
+  //       continue
+  //     }
 
-      setConnecting(id)
+  //     setConnecting(id)
 
-      const weOffer = uid < id
-      log(`weOffer ${weOffer}`)
+  //     const weOffer = uid < id
+  //     log(`weOffer ${weOffer}`)
 
-      const both = [uid, id].sort().join(":")
-      const offerRef = firestore.collection("connecting").doc(`offer:${both}`)
-      const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
+  //     const both = [uid, id].sort().join(":")
+  //     const offerRef = firestore.collection("connecting").doc(`offer:${both}`)
+  //     const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
 
-      if (weOffer) {
-        const unsub = answerRef.onSnapshot(doc => {
-          if (!doc.exists) {
-            return
-          }
-          unsub()
-          answerRef.delete()
-          const { a, o } = doc.data()
-          setIncomingAnswer({ [o]: a })
-        })
+  //     if (weOffer) {
+  //       const unsub = answerRef.onSnapshot(doc => {
+  //         if (!doc.exists) {
+  //           return
+  //         }
+  //         unsub()
+  //         answerRef.delete()
+  //         const { a, o } = doc.data()
+  //         setIncomingAnswer({ [o]: a })
+  //       })
 
-        const o = await offer()
+  //       const o = await offer()
 
-        const offerMsg = { o }
-        // log(`offerMsg ${stringify(offerMsg, null, 2)}`)
-        await offerRef.set(offerMsg)
-        log(`o sent ${!!o}`)
-      } else {
-        const unsub = offerRef.onSnapshot(doc => {
-          if (!doc.exists) {
-            return
-          }
-          unsub()
-          offerRef.delete()
-          const { o } = doc.data()
-          setIncomingOffer(o)
-        })
-      }
-    }
-  }
+  //       const offerMsg = { o }
+  //       // log(`offerMsg ${stringify(offerMsg, null, 2)}`)
+  //       await offerRef.set(offerMsg)
+  //       log(`o sent ${!!o}`)
+  //     } else {
+  //       const unsub = offerRef.onSnapshot(doc => {
+  //         if (!doc.exists) {
+  //           return
+  //         }
+  //         unsub()
+  //         offerRef.delete()
+  //         const { o } = doc.data()
+  //         setIncomingOffer(o)
+  //       })
+  //     }
+  //   }
+  // }
 
-  const handleOffer = async () => {
-    if (!incomingOffer) {
-      return
-    }
-    if (!connecting) {
-      return
-    }
+  // const handleOffer = async () => {
+  //   if (!incomingOffer) {
+  //     return
+  //   }
+  //   if (!connecting) {
+  //     return
+  //   }
 
-    const o = incomingOffer
-    const a = (await answer(o))[o]
+  //   const o = incomingOffer
+  //   const a = (await answer(o))[o]
 
-    const both = [uid, connecting].sort().join(":")
-    const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
+  //   const both = [uid, connecting].sort().join(":")
+  //   const answerRef = firestore.collection("connecting").doc(`answer:${both}`)
 
-    const answerMsg = { a, o }
-    // log(`answerMsg ${stringify(answerMsg, null, 2)}`)
-    await answerRef.set(answerMsg)
-  }
+  //   const answerMsg = { a, o }
+  //   // log(`answerMsg ${stringify(answerMsg, null, 2)}`)
+  //   await answerRef.set(answerMsg)
+  // }
 
-  const handleAnswer = async () => {
-    if (!incomingAnswer) {
-      return
-    }
-    if (!connecting) {
-      return
-    }
+  // const handleAnswer = async () => {
+  //   if (!incomingAnswer) {
+  //     return
+  //   }
+  //   if (!connecting) {
+  //     return
+  //   }
 
-    await connect(incomingAnswer)
-  }
+  //   await connect(incomingAnswer)
+  // }
 
   useEffect(() => void setMyStream(), [])
-  useEffect(() => void printRoomUsers(), [users])
-  useEffect(() => void handleOffer(), [incomingOffer, connecting])
-  useEffect(() => void handleAnswer(), [incomingAnswer, connecting, connects])
-  useEffect(() => void connectToNewRoomUsers(), [users, stream])
-
-  window.offer = offer
-  window.answer = answer
-  window.connect = connect
-  window.streams = streams
-  window.channels = channels
+  // useEffect(() => void printRoomUsers(), [users])
+  // useEffect(() => void handleOffer(), [incomingOffer, connecting])
+  // useEffect(() => void handleAnswer(), [incomingAnswer, connecting, connects])
+  // useEffect(() => void connectToNewRoomUsers(), [users, stream])
+  ;(window as any).offer = offer
+  ;(window as any).answer = answer
+  ;(window as any).connect = connect
+  ;(window as any).streams = streams
+  ;(window as any).channels = channels
 
   return (
     <div
@@ -261,23 +260,9 @@ const Root: FunctionComponent<RootProps> = ({ uid }) => {
   )
 }
 
-declare global {
-  interface Window {
-    offer: () => Promise<string>
-    answer: (...offers: Offers) => Promise<Answers>
-    connect: (answers: Answers) => Promise<void>
-    stringify: typeof stringify
-    parse: typeof parse
-    uid: string
-    streams: Streams
-    channels: Channels
-    firestore: typeof firestore
-  }
-}
-
-window.stringify = stringify
-window.parse = parse
-window.firestore = firestore
+;(window as any).stringify = stringify
+;(window as any).parse = parse
+;(window as any).firestore = firestore
 
 const RootWrapper = () => {
   const [uid, setUID] = useState<string>()
@@ -285,8 +270,7 @@ const RootWrapper = () => {
   useEffect(() => {
     pendingUID.then(setUID)
   }, [])
-
-  window.uid = uid
+  ;(window as any).uid = uid
 
   return uid ? <Root uid={uid} /> : null
 }
